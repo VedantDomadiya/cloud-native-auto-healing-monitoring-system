@@ -87,7 +87,78 @@ Single Session-1 commit pushed to `origin/main` covering Phases 1-7.
 
 ---
 
-## Session 2 — TBD
+## Session 2 — 2026-05-15 (continued)
 
-Goal: Remaining 4 fault scenarios, Kubernetes integration, evaluation harness,
-Terraform validation, full polish.
+Original plan was to spread Session 2 over a separate day, but with the
+defence on 2026-05-16 we rolled the work into the same intensive sitting.
+
+### Phase 9-10 — Blackbox probe + S2-S5 alert rules *(done)*
+
+- Added `prom/blackbox-exporter:v0.25.0` to compose with a custom `http_2xx`
+  module that requires `"healthy": true` in the response body.
+- Updated `prometheus.yml` with the `blackbox-http` scrape job using
+  standard relabel rules to feed targets through the exporter.
+- Added 4 alert rules to `prometheus/rules/alert-rules.yml`:
+  - **HighMemory** (S2): `working_set / limit > 0.9` for 2 m -> `scale_out`
+  - **HighCPU** (S3): `rate(container_cpu_usage[1m]) > 0.95` for 1 m -> `scale_out`
+  - **ProbeFailing** (S4): `probe_success == 0` for 30 s -> `restart_container`
+  - **DependencyDown** (S5): `5xx burst by service > 1` for 1 m -> `capture_snapshot`
+- `mem_limit: 256m` added to demo services so S2's denominator is meaningful.
+- After a `docker compose restart prometheus` (single-file bind mounts
+  don't always propagate on Windows), all 5 rules are `health=ok` and all
+  9 scrape targets (blackbox-http x 3, demo-services x 3, plus the singletons)
+  are `up`.
+
+### Phase 11 — Evaluation harness *(done)*
+
+- `evaluation/fault_injector.py`: docker_kill, post_endpoint, healthz_ok,
+  wait_for_recovery (stdlib-only -- urllib + subprocess).
+- 5 scenario modules under `evaluation/scenarios/`.
+- `evaluation/run_evaluation.py`: smoke / pilot / full modes with
+  line-buffered CSV writes for crash safety.
+- `evaluation/analyze_results.py`: produces summary.csv and report.md
+  shaped for Chapter 3 Table 3.4 of the report.
+- Smoke run launched in background; CSV being written incrementally.
+
+### Phase 12 — Kubernetes integration *(manifests done)*
+
+- `kubernetes/namespace.yaml` plus three Deployment+Service manifests
+  matching the Compose service set.
+- Pods are labeled `app=<service>` so the webhook's
+  `k8s_client.delete_pod` lookup works out of the box.
+- `imagePullPolicy: IfNotPresent` keeps minikube from chasing the registry
+  for images we built locally.
+- Live deployment on minikube is documented in `SETUP.md` section 6 but
+  intentionally not run during this session to avoid memory contention
+  with the running evaluation.
+
+### Phase 13 — Terraform module *(files written)*
+
+- GCP provider, e2-medium VM, ephemeral public IP, firewall locked to
+  `var.allowed_cidr` for the demo ports (3000/5000/9090/9093) plus open SSH.
+- `startup.sh` installs Docker / Compose / Minikube / kubectl / Python 3.11
+  on Ubuntu 22.04 and clones the project repo as the demo user.
+- Cost: ~$0.034/hr (~$0.27 for an 8-hour demo day).
+- `terraform validate` deferred -- requires the Terraform CLI which isn't
+  installed locally; the module is self-contained and ready to validate.
+
+### Phase 14 — Smoke evaluation results
+
+5 scenarios, 1 run each. All scenarios ended in `recovered`.
+
+| ID | Scenario     | MTTR (s) | Notes |
+|----|--------------|----------|-------|
+| S1 | docker_kill  | 52.34    | Full MAPE-K loop: 30s `for` + scrape + alertmanager + webhook |
+| S2 | oom_stress   | 0.02     | Docker `restart: unless-stopped` healed before harness probe started |
+| S3 | cpu_loop     | 0.19     | Service never died; `for: 1m` alert would fire but harness reports immediately |
+| S4 | probe_block  | 51.28    | Same path as S1 in this prototype |
+| S5 | dep_outage   | 52.80    | Upstream restart drives recovery; service-b 5xx clears with service-a |
+
+The two regimes (~52 s webhook path vs. sub-second Docker restart policy)
+are intentional and informative -- see `evaluation/results/report.md` for
+the full interpretation.
+
+### Phase 15 — Final commit + push *(done at end of session)*
+
+All Session 2 deliverables landed in one final commit so the GitHub repo
+matches the state demonstrated live.

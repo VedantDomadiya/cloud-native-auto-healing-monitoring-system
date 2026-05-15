@@ -1,0 +1,6 @@
+ts_utc,scenario_id,scenario_name,target_service,fault_at_unix,recovered_at_unix,mttr_seconds,outcome
+2026-05-15T15:12:45.801781Z,S1,docker_kill,service-a,1778857912.793,1778857965.137,52.344,recovered
+2026-05-15T15:13:33.050564Z,S2,oom_stress,service-a,1778858010.818,1778858010.834,0.016,recovered
+2026-05-15T15:14:19.044457Z,S3,cpu_loop,service-a,1778858058.066,1778858058.254,0.188,recovered
+2026-05-15T15:15:56.294999Z,S4,probe_block,service-a,1778858104.255,1778858155.536,51.281,recovered
+2026-05-15T15:17:34.744172Z,S5,dep_outage,service-a,1778858201.307,1778858254.104,52.797,recovered

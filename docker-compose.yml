@@ -54,6 +54,21 @@ services:
     ports:
       - "9100:9100"
 
+  # Synthetic HTTP probe for S4 ProbeFailing. Prometheus calls /probe on this
+  # service, which in turn issues an HTTP request to each demo service's
+  # /healthz and exports the probe_success metric.
+  blackbox:
+    image: prom/blackbox-exporter:v0.25.0
+    container_name: blackbox
+    restart: unless-stopped
+    networks: [obs-net]
+    volumes:
+      - ./blackbox/blackbox.yml:/etc/blackbox_exporter/config.yml:ro
+    command:
+      - --config.file=/etc/blackbox_exporter/config.yml
+    ports:
+      - "9115:9115"
+
   cadvisor:
     image: gcr.io/cadvisor/cadvisor:v0.49.1
     container_name: cadvisor
@@ -143,6 +158,10 @@ services:
     environment:
       SERVICE_NAME: service-a
       PORT: '8000'
+    # Memory limit so S2 HighMemory has a meaningful denominator
+    # (container_spec_memory_limit_bytes). Demo services allocate 50 MiB per
+    # /leak-memory call, so 5 calls put us over 90% of 256 MiB.
+    mem_limit: 256m
     ports:
       - "8001:8000"                      # host-side access for manual testing
     labels:
@@ -158,6 +177,7 @@ services:
       SERVICE_NAME: service-b
       PORT: '8000'
       UPSTREAM_URL: 'http://service-a:8000'
+    mem_limit: 256m
     depends_on:
       - service-a
     ports:
@@ -174,6 +194,7 @@ services:
     environment:
       SERVICE_NAME: service-c
       PORT: '8000'
+    mem_limit: 256m
     ports:
       - "8003:8000"
     labels:

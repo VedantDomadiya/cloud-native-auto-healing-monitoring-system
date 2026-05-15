@@ -1,0 +1,8 @@
+# Namespace used by every demo workload in the Kubernetes path of the demo.
+# The webhook's k8s_client looks up pods and deployments in this namespace.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: demo
+  labels:
+    purpose: auto-healing-demo

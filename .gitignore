@@ -39,8 +39,9 @@ terraform/*.tfvars
 !terraform/*.tfvars.example
 terraform/crash.log
 
-# --- Evaluation outputs (large CSVs not version-controlled) ---
-evaluation/results/*.csv
+# --- Evaluation outputs ---
+# Smoke / pilot result CSVs (small, useful to commit). A future 300-run full
+# evaluation may produce larger files; exclude those explicitly if/when needed.
 !evaluation/results/.gitkeep
 
 # --- Logs ---

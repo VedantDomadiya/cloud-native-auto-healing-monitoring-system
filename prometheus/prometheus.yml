@@ -49,3 +49,26 @@ scrape_configs:
         labels:
           service: service-c
           environment: docker
+
+  # Blackbox HTTP probes against each demo service's /healthz. The relabel
+  # rules rewrite the destination so Prometheus actually scrapes the blackbox
+  # exporter, which in turn issues the real HTTP request and returns
+  # probe_success / probe_duration_seconds.
+  - job_name: blackbox-http
+    metrics_path: /probe
+    params:
+      module: [http_2xx]
+    static_configs:
+      - targets: ['http://service-a:8000/healthz']
+        labels: {service: service-a, environment: docker}
+      - targets: ['http://service-b:8000/healthz']
+        labels: {service: service-b, environment: docker}
+      - targets: ['http://service-c:8000/healthz']
+        labels: {service: service-c, environment: docker}
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: blackbox:9115

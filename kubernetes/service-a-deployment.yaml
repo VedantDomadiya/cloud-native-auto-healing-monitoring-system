@@ -1,0 +1,68 @@
+# service-a: independent demo service. Same image as the Docker variant.
+#
+# To get the image into minikube:
+#   minikube image load auto-healing/service-a:0.1.0
+#
+# Then:
+#   kubectl apply -f kubernetes/namespace.yaml
+#   kubectl apply -f kubernetes/service-a-deployment.yaml
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: service-a
+  namespace: demo
+  labels: {app: service-a}
+spec:
+  replicas: 1
+  selector:
+    matchLabels: {app: service-a}
+  template:
+    metadata:
+      labels:
+        app: service-a
+        autoheal_environment: kubernetes
+      annotations:
+        # Lets the webhook find pods by label, lets Prometheus discover them.
+        prometheus.io/scrape: 'true'
+        prometheus.io/port: '8000'
+        prometheus.io/path: '/metrics'
+    spec:
+      containers:
+        - name: service-a
+          image: auto-healing/service-a:0.1.0
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: SERVICE_NAME
+              value: service-a
+          ports:
+            - containerPort: 8000
+              name: http
+          resources:
+            limits:
+              memory: 256Mi
+              cpu: '1'
+            requests:
+              memory: 64Mi
+              cpu: 100m
+          livenessProbe:
+            httpGet: {path: /healthz, port: 8000}
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          readinessProbe:
+            httpGet: {path: /readyz, port: 8000}
+            initialDelaySeconds: 3
+            periodSeconds: 5
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: service-a
+  namespace: demo
+  labels: {app: service-a}
+spec:
+  selector: {app: service-a}
+  ports:
+    - name: http
+      port: 8000
+      targetPort: 8000

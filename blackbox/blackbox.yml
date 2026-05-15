@@ -1,0 +1,11 @@
+modules:
+  # Probe a /healthz endpoint and require a 2xx response within 2 seconds.
+  http_2xx:
+    prober: http
+    timeout: 2s
+    http:
+      preferred_ip_protocol: ip4
+      valid_status_codes: [200]
+      method: GET
+      fail_if_body_not_matches_regexp:
+        - '"healthy"\s*:\s*true'
