@@ -1,0 +1,28 @@
+# Alert rules for the auto-healing webhook.
+# Each rule emits labels the webhook uses to dispatch the right remediation:
+#   - service              identifies the workload
+#   - autoheal_action      key into the webhook's dispatch table
+#   - environment          docker | kubernetes (selects the right client)
+#   - severity             routing hint only; the webhook ignores it
+#
+# Session 1 ships S1 only. S2-S5 are added in Session 2.
+
+groups:
+
+  - name: auto-healing.session-1
+    interval: 10s
+    rules:
+
+      # S1: a scrape target stays down for 30s => container is gone.
+      # Remediation: restart_container via Docker API (or K8s delete pod).
+      - alert: ContainerDown
+        expr: up{job="demo-services"} == 0
+        for: 30s
+        labels:
+          severity: critical
+          autoheal_action: restart_container
+          service: '{{ $labels.service }}'
+          environment: '{{ $labels.environment }}'
+        annotations:
+          summary: '{{ $labels.service }} is down on {{ $labels.environment }}'
+          description: 'Prometheus has been unable to scrape {{ $labels.service }} for at least 30 seconds. Triggering restart_container.'

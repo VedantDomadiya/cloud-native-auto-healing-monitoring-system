@@ -1,0 +1,180 @@
+# Observability stack + demo services.
+# All services share one bridge network so Prometheus can scrape by DNS name.
+# Webhook service is wired up in Phase 6.
+
+networks:
+  obs-net:
+    driver: bridge
+
+volumes:
+  prometheus_data: {}
+  grafana_data: {}
+  alertmanager_data: {}
+
+services:
+
+  # --------------------------------------------------------------------------
+  # MONITOR
+  # --------------------------------------------------------------------------
+  prometheus:
+    image: prom/prometheus:v2.51.2
+    container_name: prometheus
+    restart: unless-stopped
+    networks: [obs-net]
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./prometheus/rules:/etc/prometheus/rules:ro
+      - prometheus_data:/prometheus
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --storage.tsdb.retention.time=15d
+      - --web.console.libraries=/usr/share/prometheus/console_libraries
+      - --web.console.templates=/usr/share/prometheus/consoles
+      - --web.enable-lifecycle           # /-/reload endpoint
+    ports:
+      - "9090:9090"
+
+  node-exporter:
+    image: prom/node-exporter:v1.7.0
+    container_name: node-exporter
+    restart: unless-stopped
+    networks: [obs-net]
+    pid: host                            # see host processes, not just container ones
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
+    command:
+      - --path.procfs=/host/proc
+      - --path.sysfs=/host/sys
+      - --path.rootfs=/rootfs
+      # double-dollar escapes compose variable substitution; passed as literal $
+      - --collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)
+    ports:
+      - "9100:9100"
+
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:v0.49.1
+    container_name: cadvisor
+    restart: unless-stopped
+    networks: [obs-net]
+    privileged: true                     # cgroup metrics need this
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker:/var/lib/docker:ro
+      - /dev/disk/:/dev/disk:ro
+    devices:
+      - /dev/kmsg
+    ports:
+      - "8080:8080"
+
+  # --------------------------------------------------------------------------
+  # PLAN  (Alertmanager)
+  # --------------------------------------------------------------------------
+  alertmanager:
+    image: prom/alertmanager:v0.27.0
+    container_name: alertmanager
+    restart: unless-stopped
+    networks: [obs-net]
+    volumes:
+      - ./alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+      - alertmanager_data:/alertmanager
+    command:
+      - --config.file=/etc/alertmanager/alertmanager.yml
+      - --storage.path=/alertmanager
+    ports:
+      - "9093:9093"
+
+  # --------------------------------------------------------------------------
+  # VISUALIZATION
+  # --------------------------------------------------------------------------
+  grafana:
+    image: grafana/grafana:11.0.0
+    container_name: grafana
+    restart: unless-stopped
+    networks: [obs-net]
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana_data:/var/lib/grafana
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}
+      GF_USERS_ALLOW_SIGN_UP: 'false'
+      GF_AUTH_ANONYMOUS_ENABLED: 'false'
+    ports:
+      - "3000:3000"
+    depends_on:
+      - prometheus
+
+  # --------------------------------------------------------------------------
+  # EXECUTE  (auto-healing webhook)
+  # --------------------------------------------------------------------------
+  webhook:
+    build: ./webhook
+    image: auto-healing/webhook:0.1.0
+    container_name: webhook
+    restart: unless-stopped
+    networks: [obs-net]
+    ports:
+      - "5000:5000"
+    environment:
+      WEBHOOK_TOKEN: ${WEBHOOK_TOKEN:-}
+      IDEMPOTENCY_WINDOW_SECONDS: ${IDEMPOTENCY_WINDOW_SECONDS:-30}
+      AUDIT_LOG_PATH: /var/log/webhook/audit.log
+    volumes:
+      # rw: the webhook restarts containers via the Docker API.
+      - /var/run/docker.sock:/var/run/docker.sock
+    depends_on:
+      - alertmanager
+
+  # --------------------------------------------------------------------------
+  # DEMO SERVICES (workloads under test)
+  # --------------------------------------------------------------------------
+  service-a:
+    build: ./demo-services/service-a
+    image: auto-healing/service-a:0.1.0
+    container_name: service-a
+    restart: unless-stopped
+    networks: [obs-net]
+    environment:
+      SERVICE_NAME: service-a
+      PORT: '8000'
+    ports:
+      - "8001:8000"                      # host-side access for manual testing
+    labels:
+      autoheal_environment: docker
+
+  service-b:
+    build: ./demo-services/service-b
+    image: auto-healing/service-b:0.1.0
+    container_name: service-b
+    restart: unless-stopped
+    networks: [obs-net]
+    environment:
+      SERVICE_NAME: service-b
+      PORT: '8000'
+      UPSTREAM_URL: 'http://service-a:8000'
+    depends_on:
+      - service-a
+    ports:
+      - "8002:8000"
+    labels:
+      autoheal_environment: docker
+
+  service-c:
+    build: ./demo-services/service-c
+    image: auto-healing/service-c:0.1.0
+    container_name: service-c
+    restart: unless-stopped
+    networks: [obs-net]
+    environment:
+      SERVICE_NAME: service-c
+      PORT: '8000'
+    ports:
+      - "8003:8000"
+    labels:
+      autoheal_environment: docker

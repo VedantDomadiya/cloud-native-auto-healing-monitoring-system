@@ -1,0 +1,31 @@
+# Alertmanager routing.
+# Alerts with an `autoheal_action` label go to the webhook; everything else
+# falls through to the console receiver (logged to Alertmanager's stdout so
+# we can see them with `docker logs alertmanager`).
+
+global:
+  resolve_timeout: 1m
+
+route:
+  receiver: console
+  group_by: [alertname, service]
+  group_wait: 5s              # short — we want fast remediation
+  group_interval: 30s
+  repeat_interval: 5m
+  routes:
+    - matchers:
+        - autoheal_action =~ ".+"
+      receiver: webhook
+      continue: false
+
+receivers:
+  - name: console
+    # No config — Alertmanager prints unmatched alerts to stdout.
+
+  - name: webhook
+    webhook_configs:
+      - url: http://webhook:5000/webhook
+        send_resolved: true
+        max_alerts: 0          # forward all alerts in a group
+
+inhibit_rules: []
