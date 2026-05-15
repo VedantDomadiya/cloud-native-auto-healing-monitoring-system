@@ -1,0 +1,57 @@
+# --- Python ---
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+venv/
+.venv/
+env/
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+
+# --- Node (not core to this project, defensive) ---
+node_modules/
+
+# --- Environment & secrets ---
+.env
+.env.local
+*.pem
+*.key
+
+# --- OS / editors ---
+.DS_Store
+Thumbs.db
+desktop.ini
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# --- Terraform ---
+terraform/.terraform/
+terraform/.terraform.lock.hcl
+terraform/*.tfstate
+terraform/*.tfstate.*
+terraform/*.tfvars
+!terraform/*.tfvars.example
+terraform/crash.log
+
+# --- Evaluation outputs (large CSVs not version-controlled) ---
+evaluation/results/*.csv
+!evaluation/results/.gitkeep
+
+# --- Logs ---
+*.log
+webhook/audit.log*
+logs/
+
+# --- Runtime data volumes (mounted by docker-compose) ---
+data/
+prometheus_data/
+grafana_data/
+
+# --- Claude Code metadata ---
+.claude/
