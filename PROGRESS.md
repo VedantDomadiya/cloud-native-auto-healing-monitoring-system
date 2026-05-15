@@ -162,3 +162,40 @@ the full interpretation.
 
 All Session 2 deliverables landed in one final commit so the GitHub repo
 matches the state demonstrated live.
+
+### Phase 16 — Dashboard fix-up *(post-Session-2)*
+
+Screenshots of the live Grafana dashboards showed every panel rendering
+"No data". Two root causes; both fixed:
+
+1. **Datasource UID mismatch.** The provisioned datasource auto-generated
+   a random UID, but the dashboard JSONs all referenced `uid: prometheus`.
+   Fixed by pinning `uid: prometheus` on
+   `grafana/provisioning/datasources/prometheus.yml` and recreating Grafana.
+
+2. **cAdvisor cannot enumerate individual containers on Docker Desktop's
+   WSL 2 backend.** Adding `--docker_only=true` to cAdvisor's command did
+   not help -- it still only emits cgroup-root series with no `name`
+   label. Replaced the container CPU / memory / restart panels and the
+   S2 / S3 alert rules to use the demo services' own
+   `process_resident_memory_bytes`, `process_cpu_seconds_total`, and
+   `process_start_time_seconds` metrics (auto-exported by
+   `prometheus_client`). These are pre-labeled with `service=service-X`
+   via the Prometheus scrape config relabeling, so panels render
+   immediately and the restart count panel shows clean evidence of an
+   auto-heal cycle.
+
+Also added a `busybox` load-generator container that hits each demo
+service once per second, so the Application Performance dashboard always
+has request-rate / latency data to chart even when no fault is being
+injected.
+
+Other improvements while in there:
+- Container Summary picked up two new stat panels: "Restarts in last
+  10 min" and "Alerts firing now".
+- Host Overview picked up three current-value stat panels at the top
+  (CPU busy, memory used, load average) for at-a-glance status.
+- Application Performance picked up three stat panels (current req/s,
+  error fraction, p95 latency) plus a status-code breakdown timeseries.
+- Default time range tightened from 30 min to 15 min on all three
+  dashboards; refresh interval dropped from 10 s to 5 s.

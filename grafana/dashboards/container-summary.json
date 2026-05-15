@@ -1,109 +1,74 @@
 {
-  "annotations": {
-    "list": [
-      {
-        "builtIn": 1,
-        "datasource": {"type": "datasource", "uid": "grafana"},
-        "enable": true,
-        "hide": true,
-        "iconColor": "rgba(0, 211, 255, 1)",
-        "name": "Annotations & Alerts",
-        "type": "dashboard"
-      }
-    ]
-  },
+  "annotations": {"list": []},
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 0,
   "id": null,
   "links": [],
-  "liveNow": false,
   "panels": [
     {
       "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "description": "Process CPU rate as a fraction of one CPU core. Sourced from each service's own /metrics endpoint (prometheus_client auto-exports process_cpu_seconds_total). The S3 HighCPU alert fires when this exceeds 0.95 for 1 minute.",
       "fieldConfig": {
         "defaults": {
           "color": {"mode": "palette-classic"},
-          "custom": {
-            "axisCenteredZero": false,
-            "axisColorMode": "text",
-            "axisLabel": "",
-            "axisPlacement": "auto",
-            "barAlignment": 0,
-            "drawStyle": "line",
-            "fillOpacity": 10,
-            "gradientMode": "none",
-            "hideFrom": {"legend": false, "tooltip": false, "viz": false},
-            "lineInterpolation": "linear",
-            "lineWidth": 1,
-            "pointSize": 5,
-            "scaleDistribution": {"type": "linear"},
-            "showPoints": "never",
-            "spanNulls": false,
-            "stacking": {"group": "A", "mode": "none"},
-            "thresholdsStyle": {"mode": "off"}
-          },
+          "custom": {"drawStyle": "line", "fillOpacity": 15, "lineWidth": 2, "showPoints": "never", "spanNulls": false},
           "mappings": [],
-          "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}]},
-          "unit": "percentunit"
-        },
-        "overrides": []
+          "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "red", "value": 0.95}]},
+          "unit": "percentunit",
+          "min": 0
+        }
       },
-      "gridPos": {"h": 9, "w": 12, "x": 0, "y": 0},
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0},
       "id": 1,
       "options": {
-        "legend": {"calcs": [], "displayMode": "list", "placement": "bottom", "showLegend": true},
+        "legend": {"calcs": ["lastNotNull", "max"], "displayMode": "table", "placement": "bottom", "showLegend": true},
         "tooltip": {"mode": "multi", "sort": "desc"}
       },
       "targets": [
         {
           "datasource": {"type": "prometheus", "uid": "prometheus"},
-          "expr": "sum by (name) (rate(container_cpu_usage_seconds_total{name=~\"service-.+\"}[1m]))",
-          "legendFormat": "{{name}}",
+          "expr": "rate(process_cpu_seconds_total{job=\"demo-services\"}[1m])",
+          "legendFormat": "{{service}}",
           "refId": "A"
         }
       ],
-      "title": "Container CPU (rate, per container)",
+      "title": "Service CPU rate (S3 threshold = 0.95)",
       "type": "timeseries"
     },
     {
       "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "description": "Resident memory of each demo service's Python process. The S2 HighMemory alert fires when this exceeds 230 MiB (~90% of the 256 MiB cgroup limit) for 30 seconds.",
       "fieldConfig": {
         "defaults": {
           "color": {"mode": "palette-classic"},
-          "custom": {
-            "drawStyle": "line",
-            "fillOpacity": 10,
-            "lineWidth": 1,
-            "pointSize": 5,
-            "showPoints": "never",
-            "spanNulls": false
-          },
+          "custom": {"drawStyle": "line", "fillOpacity": 15, "lineWidth": 2, "showPoints": "never", "spanNulls": false},
           "mappings": [],
-          "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}]},
-          "unit": "bytes"
-        },
-        "overrides": []
+          "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "red", "value": 241591910}]},
+          "unit": "bytes",
+          "min": 0
+        }
       },
-      "gridPos": {"h": 9, "w": 12, "x": 12, "y": 0},
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0},
       "id": 2,
       "options": {
-        "legend": {"calcs": [], "displayMode": "list", "placement": "bottom", "showLegend": true},
+        "legend": {"calcs": ["lastNotNull", "max"], "displayMode": "table", "placement": "bottom", "showLegend": true},
         "tooltip": {"mode": "multi", "sort": "desc"}
       },
       "targets": [
         {
           "datasource": {"type": "prometheus", "uid": "prometheus"},
-          "expr": "sum by (name) (container_memory_working_set_bytes{name=~\"service-.+\"})",
-          "legendFormat": "{{name}}",
+          "expr": "process_resident_memory_bytes{job=\"demo-services\"}",
+          "legendFormat": "{{service}}",
           "refId": "A"
         }
       ],
-      "title": "Container Memory (working set)",
+      "title": "Service resident memory (S2 threshold = 230 MiB)",
       "type": "timeseries"
     },
     {
       "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "description": "Whether Prometheus can scrape each demo service's /metrics endpoint. Goes to 0 when the container is killed or unreachable; the S1 ContainerDown alert fires after this stays 0 for 30 seconds.",
       "fieldConfig": {
         "defaults": {
           "color": {"mode": "thresholds"},
@@ -111,18 +76,17 @@
             {"options": {"0": {"color": "red", "text": "DOWN"}, "1": {"color": "green", "text": "UP"}}, "type": "value"}
           ],
           "thresholds": {"mode": "absolute", "steps": [{"color": "red", "value": null}, {"color": "green", "value": 1}]}
-        },
-        "overrides": []
+        }
       },
-      "gridPos": {"h": 6, "w": 12, "x": 0, "y": 9},
+      "gridPos": {"h": 6, "w": 8, "x": 0, "y": 8},
       "id": 3,
       "options": {
         "colorMode": "background",
         "graphMode": "none",
-        "justifyMode": "auto",
+        "justifyMode": "center",
         "orientation": "auto",
         "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false},
-        "textMode": "auto"
+        "textMode": "value_and_name"
       },
       "pluginVersion": "11.0.0",
       "targets": [
@@ -138,43 +102,111 @@
     },
     {
       "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "description": "Number of times each service has been restarted in the last 10 minutes (computed by counting changes in process_start_time_seconds). When the webhook auto-heals a service, this number jumps from 0 to 1 within a minute.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "continuous-RdYlGr"},
+          "mappings": [],
+          "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "yellow", "value": 1}, {"color": "red", "value": 3}]},
+          "unit": "short"
+        }
+      },
+      "gridPos": {"h": 6, "w": 8, "x": 8, "y": 8},
+      "id": 4,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false},
+        "textMode": "value_and_name"
+      },
+      "pluginVersion": "11.0.0",
+      "targets": [
+        {
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "expr": "changes(process_start_time_seconds{job=\"demo-services\"}[10m])",
+          "legendFormat": "{{service}}",
+          "refId": "A"
+        }
+      ],
+      "title": "Restarts in last 10 min (auto-heal evidence)",
+      "type": "stat"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "description": "Count of currently firing alerts grouped by name. Green (0) is the normal state. During the live demo S1 will appear here briefly while the webhook performs the restart.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "thresholds"},
+          "mappings": [],
+          "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "red", "value": 1}]},
+          "unit": "short",
+          "noValue": "0"
+        }
+      },
+      "gridPos": {"h": 6, "w": 8, "x": 16, "y": 8},
+      "id": 5,
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false},
+        "textMode": "value_and_name"
+      },
+      "pluginVersion": "11.0.0",
+      "targets": [
+        {
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "expr": "sum by (alertname) (ALERTS{alertstate=\"firing\"}) or vector(0)",
+          "legendFormat": "{{alertname}}",
+          "refId": "A"
+        }
+      ],
+      "title": "Alerts firing now",
+      "type": "stat"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "description": "Total HTTP requests per second handled by each demo service. The load-generator container holds a steady ~3 req/s baseline so panels never go empty.",
       "fieldConfig": {
         "defaults": {
           "color": {"mode": "palette-classic"},
-          "custom": {"drawStyle": "line", "fillOpacity": 10, "lineWidth": 1, "showPoints": "never"},
+          "custom": {"drawStyle": "line", "fillOpacity": 15, "lineWidth": 2, "showPoints": "never"},
           "mappings": [],
           "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}]},
-          "unit": "short"
-        },
-        "overrides": []
+          "unit": "reqps",
+          "min": 0
+        }
       },
-      "gridPos": {"h": 6, "w": 12, "x": 12, "y": 9},
-      "id": 4,
+      "gridPos": {"h": 8, "w": 24, "x": 0, "y": 14},
+      "id": 6,
       "options": {
-        "legend": {"calcs": [], "displayMode": "list", "placement": "bottom", "showLegend": true},
+        "legend": {"calcs": ["lastNotNull"], "displayMode": "table", "placement": "bottom", "showLegend": true},
         "tooltip": {"mode": "multi", "sort": "desc"}
       },
       "targets": [
         {
           "datasource": {"type": "prometheus", "uid": "prometheus"},
           "expr": "sum by (service) (rate(http_requests_total[1m]))",
-          "legendFormat": "{{service}} req/s",
+          "legendFormat": "{{service}}",
           "refId": "A"
         }
       ],
-      "title": "Demo service request rate",
+      "title": "Demo service request rate (req/s)",
       "type": "timeseries"
     }
   ],
-  "refresh": "10s",
+  "refresh": "5s",
   "schemaVersion": 39,
   "tags": ["auto-healing", "containers"],
   "templating": {"list": []},
-  "time": {"from": "now-30m", "to": "now"},
+  "time": {"from": "now-15m", "to": "now"},
   "timepicker": {},
   "timezone": "",
   "title": "Container Summary",
   "uid": "auto-healing-container-summary",
-  "version": 1,
+  "version": 3,
   "weekStart": ""
 }

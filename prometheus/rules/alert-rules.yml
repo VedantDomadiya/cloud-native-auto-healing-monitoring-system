@@ -28,44 +28,38 @@ groups:
     interval: 10s
     rules:
 
-      # S2: working-set memory above 90% of the container's memory limit.
-      # label_replace projects cAdvisor's `name` label onto a `service` label
-      # so the webhook routing picks the right workload.
+      # S2: resident memory above 230 MiB (~90% of the 256 MiB cgroup limit).
+      # We use process_resident_memory_bytes from each service's own
+      # /metrics endpoint because cAdvisor on Docker Desktop / WSL2 does
+      # not consistently emit per-container memory metrics. The threshold
+      # is hardcoded to match the mem_limit set in docker-compose.yml.
       - alert: HighMemory
-        expr: |
-          label_replace(
-            container_memory_working_set_bytes{name=~"service-.+"}
-              / container_spec_memory_limit_bytes{name=~"service-.+"},
-            "service", "$1", "name", "(.+)"
-          ) > 0.9
-        for: 2m
+        expr: process_resident_memory_bytes{job="demo-services"} > 241591910  # 230 MiB
+        for: 30s
         labels:
           severity: critical
           autoheal_action: scale_out
           service: '{{ $labels.service }}'
-          environment: docker
+          environment: '{{ $labels.environment }}'
         annotations:
-          summary: '{{ $labels.service }} memory above 90% of limit'
+          summary: '{{ $labels.service }} memory above 230 MiB'
 
-      # S3: CPU usage above 95% of one core for a sustained minute.
+      # S3: process CPU usage above 95% of one core for a sustained minute.
+      # Same rationale as S2 for using process metrics over cAdvisor.
       - alert: HighCPU
-        expr: |
-          label_replace(
-            rate(container_cpu_usage_seconds_total{name=~"service-.+"}[1m]),
-            "service", "$1", "name", "(.+)"
-          ) > 0.95
+        expr: rate(process_cpu_seconds_total{job="demo-services"}[1m]) > 0.95
         for: 1m
         labels:
           severity: critical
           autoheal_action: scale_out
           service: '{{ $labels.service }}'
-          environment: docker
+          environment: '{{ $labels.environment }}'
         annotations:
-          summary: '{{ $labels.service }} CPU above 95%'
+          summary: '{{ $labels.service }} CPU above 95% of one core'
 
       # S4: external blackbox probe failing (HTTP /healthz not returning 200).
-      # This is distinct from S1: a service can be scraped (process up,
-      # /metrics responding) but still report unhealthy via /healthz.
+      # Distinct from S1: a service may be scraped (process up, /metrics
+      # responding) but still report unhealthy via /healthz.
       - alert: ProbeFailing
         expr: probe_success{job="blackbox-http"} == 0
         for: 30s
@@ -77,8 +71,8 @@ groups:
         annotations:
           summary: 'Probe failing for {{ $labels.service }}'
 
-      # S5: 5xx burst from a service indicates a dependency outage from its
-      # perspective. The webhook captures a log snapshot before restarting.
+      # S5: 5xx burst from a service indicates a dependency outage. The
+      # webhook captures a log snapshot before restarting the dependent.
       - alert: DependencyDown
         expr: sum by (service) (rate(http_requests_total{code=~"5.."}[1m])) > 1
         for: 1m

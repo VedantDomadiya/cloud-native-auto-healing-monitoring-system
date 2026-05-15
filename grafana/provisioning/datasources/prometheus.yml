@@ -2,6 +2,9 @@ apiVersion: 1
 
 datasources:
   - name: Prometheus
+    # Pinned UID so provisioned dashboard JSONs can reference it deterministically.
+    # Without this Grafana generates a random UID and every panel renders as "No data".
+    uid: prometheus
     type: prometheus
     access: proxy
     url: http://prometheus:9090
