@@ -10,6 +10,10 @@
 >
 > **Written:** 2026-05-16, at the end of the build sprint, the morning of
 > the GTU defence.
+> **Last updated:** 2026-05-16 evening, after the defence, when the final
+> release commit (`b60d518`) added the LICENSE, the portfolio-grade
+> README, the `AIT/` submission package, and the working-state dashboard
+> screenshots.
 
 ---
 
@@ -178,15 +182,24 @@ Most of these are self-explanatory once you read them, but a few notes:
 | `README.md`                                     | High-level overview + quick start. Public-facing.                                                |
 | `SETUP.md`                                      | Prerequisites + troubleshooting + per-track run steps.                                           |
 | `PROGRESS.md`                                   | The build journal. Read this for chronological context.                                          |
-| `DEMO_RUNBOOK.md`                               | Defence-day playbook. Untracked by default; commit if useful.                                    |
+| `DEMO_RUNBOOK.md`                               | Defence-day playbook. Pre-flight + demo flow + Q&A + troubleshooting.                            |
+| `AUTOHEAL_BUILD_HANDOFF.md`                     | This file. Comprehensive handoff for any future AI assistant.                                    |
+| `LICENSE`                                       | MIT. Added in the final release commit.                                                          |
+| `AIT/Defence Deck.html`                         | The slide deck used during the live defence (2026-05-16).                                        |
+| `AIT/Vedant_Domadiya_MiniProject_Report_Final.docx` | The formal GTU Mini Project report.                                                          |
+| `grafana/Container Summary.png`                 | Working-state screenshot of the container dashboard (post-fix, 2026-05-16).                      |
+| `grafana/Host Overview.png`                     | Working-state host dashboard screenshot.                                                         |
+| `grafana/Application Performance.png`           | Application performance dashboard (Error fraction stat reads "No data" because no 5xx requests exist; that is correct behavior, not a bug). |
 
 ---
 
 ## 7. Git history
 
-Four commits, each a distinct chunk of work:
+Six commits forming a coherent narrative of the build:
 
 ```
+b60d518  Release: portfolio-grade README, MIT license, AIT submission package
+8156070  Add demo runbook and AI-handoff context docs
 b8007a5  Fix dashboards: pin datasource uid, switch container metrics to process_*
 135e606  Session 2: full fault matrix, evaluation harness, K8s + Terraform scaffolding
 ec1989d  Session 1: end-to-end auto-heal working for S1 ContainerDown
@@ -196,6 +209,10 @@ ec1989d  Session 1: end-to-end auto-heal working for S1 ContainerDown
 Repo: <https://github.com/VedantDomadiya/cloud-native-auto-healing-monitoring-system>
 
 Branch: `main`. No other branches.
+
+The first four commits are the build itself; the last two are the
+post-build polish (defence-day documentation, final release with
+README rewrite + LICENSE + screenshots + submission package).
 
 ---
 
